@@ -1,16 +1,10 @@
 
-import matplotlib.pyplot as plt
-import numpy as np
 from plotly.offline import download_plotlyjs, init_notebook_mode, plot, iplot
 import cufflinks as cf
-import plotly.graph_objects as go
 cf.go_offline()
 cf.set_config_file(offline=False, world_readable=True)
-import torch.nn as nn
 from torch.utils.data import TensorDataset, DataLoader, Dataset
-import torch
 import matplotlib.pyplot as plt
-import pandas as pd
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
 from Utils import *
 from Train_Test import *
@@ -34,24 +28,7 @@ def main():
     ETH.set_index(ETH['Date'], inplace=True)
     ETH.info()
 
-    # Make Candlestick visualization
-    configure_plotly_browser_state()
-    init_notebook_mode(connected=False)
-    figure = go.Figure(
-        data=[go.Candlestick(
-            x=ETH.Date,
-            low=ETH['Low'],
-            high=ETH['High'],
-            close=ETH['Close'],
-            open=ETH['Open'],
-            increasing_line_color='green',
-            decreasing_line_color='red')])
 
-    figure.update_layout(xaxis_rangeslider_visible=False,
-                         title='Ether Prices',
-                         yaxis_title='Ether Price in USD ($)',
-                         xaxis_title='Date')
-    figure.show()
 
     # Normalize Data and Spliting into Train Valid Test set.
 
@@ -74,7 +51,7 @@ def main():
     test_num = 20
     seq_len = 101  # looking back N steps
 
-    x_train, y_train, x_valid, y_valid, x_test, y_test = make_seq(price, seq_len)
+    x_train, y_train, x_valid, y_valid, x_test, y_test = make_seq(price, seq_len, valid_num= valid_num, test_num=test_num)
     print('x_train.shape = ', x_train.shape)
     print('y_train.shape = ', y_train.shape)
     print('x_valid.shape = ', x_valid.shape)
@@ -114,7 +91,7 @@ def main():
     output_dim = 1
     hidden_dim = 185
     layer_dim = 2
-    n_epochs = 150
+    n_epochs = 2#150
     learning_rate = 0.001
 
     model_lstm = LSTMModel(input_dim=input_dim,
@@ -129,26 +106,36 @@ def main():
 
     # Train it
     train_loss, valid_loss = fit_train(n_epochs=n_epochs, train_dl=train_dl, valid_dl=valid_dl,
-                                       model=model_lstm, loss_function=loss_function, optimizer=optimizer)
+                                       model=model_lstm, loss_function=loss_function, optimizer=optimizer,
+                                       batch_size=batch_size, input_dim=input_dim)
 
     # Figure for loss
-    plt.figure(figsize=(15, 6))
-    plt.plot(train_loss)
-    plt.plot(valid_loss)
-    plt.xlabel("epochs")
-    plt.ylabel('loss')
-    plt.legend(['Training', 'Validation'])
-    plt.title('Loss vs. Number of Epochs LSTM Model');
+    make_plot(train_loss=train_loss, valid_loss=valid_loss, model_name='LSTM')
 
-    predictions, values = test_fit(model=model_lstm, test_dl_one=test_dl_one)  # Test the model
+    predictions, values = test_fit(model=model_lstm, test_dl_one=test_dl_one, input_dim=input_dim)  # Test the model
 
     df_result = format_predictions(predictions, values, ETH[1558:], scaler)  # Show Dataset
     df_result
 
     # Make plotly for the results.
-    configure_plotly_browser_state()
+    #configure_plotly_browser_state()
     # Set notebook mode to work in offline
-    pyo.init_notebook_mode()
+    #pyo.init_notebook_mode()
 
     plot_predictions(df_result, model_name="lstm")
+
+    # Difine Days, Evaluate , make df result
+    future_days = 240
+
+    preds = make_future_preds(x_test=x_test, model=model_lstm, future_days=future_days)
+    future_df_lstm = make_future_df(preds, df_result, future_days,scaler = scaler)
+
+    # Plot the results
+    #configure_plotly_browser_state()
+    # Set notebook mode to work in offline
+    #pyo.init_notebook_mode()
+
+    plot_predictions(df_result, future_pred=future_df_lstm, model_name="lstm")
+if __name__ == "__main__":
+    main()
 

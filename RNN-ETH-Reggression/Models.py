@@ -1,4 +1,7 @@
 
+import torch.nn as nn
+import torch
+
 
 class RNNModel(nn.Module):
     def __init__(self, input_dim, hidden_dim, layer_dim, output_dim):

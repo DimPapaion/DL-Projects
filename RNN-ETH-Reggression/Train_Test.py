@@ -1,3 +1,12 @@
+import cufflinks as cf
+cf.go_offline()
+cf.set_config_file(offline=False, world_readable=True)
+import torch
+import numpy as np
+from Utils import *
+
+
+
 
 def train_step(x ,y, model, loss_fn, optimizer):
 # Sets model to train mode
@@ -20,9 +29,11 @@ def train_step(x ,y, model, loss_fn, optimizer):
     return loss.item()
 
 
-def fit_train(n_epochs, train_dl, valid_dl, model, loss_function, optimizer):
+def fit_train(n_epochs, train_dl, valid_dl, model, loss_function, optimizer, batch_size, input_dim):
     train_losses = []
     val_losses = []
+    device = "cuda" if torch.cuda.is_available() else "cpu" # check if cuda available.
+    print("Training is starting...")
     for epoch in range(1, n_epochs + 1):
 
         batch_losses = []
@@ -65,8 +76,9 @@ def fit_train(n_epochs, train_dl, valid_dl, model, loss_function, optimizer):
     return [train_losses, val_losses]
 
 
-def test_fit(model, test_dl_one):
+def test_fit(model, test_dl_one, input_dim):
     batch_size = 1
+    device = "cuda" if torch.cuda.is_available() else "cpu"  # check if cuda available.
     with torch.no_grad():
         predictions = []
         values = []

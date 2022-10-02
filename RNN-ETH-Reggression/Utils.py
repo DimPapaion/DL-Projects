@@ -1,11 +1,31 @@
 
-import plotly.offline as pyo
+import cufflinks as cf
+import plotly.graph_objects as go
+cf.go_offline()
+cf.set_config_file(offline=False, world_readable=True)
 import plotly.graph_objs as go
 from plotly.offline import iplot
+import pandas as pd
+import numpy as np
+import torch
+import matplotlib.pyplot as plt
+from sklearn.preprocessing import StandardScaler
+
+
+def make_plot(train_loss, valid_loss, model_name):
+        plt.figure(figsize=(15, 6))
+        plt.plot(train_loss)
+        plt.plot(valid_loss)
+        plt.xlabel("epochs")
+        plt.ylabel('loss')
+        plt.legend(['Training', 'Validation'])
+        plt.title('Loss vs. Number of Epochs {} Model'.format(model_name))
+        plt.show()
+
 
 def configure_plotly_browser_state():
   import IPython
-  display(IPython.core.display.HTML('''
+  IPython.display(IPython.core.display.HTML('''
         <script src="/static/components/requirejs/require.js"></script>
         <script>
           requirejs.config({
@@ -91,7 +111,7 @@ def create_seq(E_price,seq_len):
   return data
 
 
-def make_seq(data_, seq_len):
+def make_seq(data_, seq_len, valid_num, test_num):
     data = create_seq(data_, seq_len)
     data = np.array(data);
     valid_set_size = int(np.round(valid_num / 100 * data.shape[0]));
@@ -122,3 +142,39 @@ def format_predictions(predictions, values, df_test, scaler):
     df_result = df_result.sort_index()
     df_result = inverse_transform(scaler, df_result, [["value", "prediction"]])
     return df_result
+
+def make_future_df(preds, df_result,future_days, scaler):
+  predicted_cases = scaler.inverse_transform(
+    np.expand_dims(preds, axis=0)      # Back to original form
+  ).flatten()
+  df_result.index[-1]
+
+  predicted_index = pd.date_range(
+    start=df_result.index[-1],
+    periods=future_days + 1,
+    closed='right'
+  )
+  predicted_cases = pd.Series(
+    data=predicted_cases,           # make index, values
+    index=predicted_index
+  )
+  return predicted_cases
+
+# Evaluate the model and move forward 240 days.
+
+def make_future_preds(x_test, model, future_days):
+  seq_length = 100
+  with torch.no_grad():
+    x_test1 = torch.from_numpy(x_test).float()
+    test_seq = x_test1[368:]
+    preds = []
+    for _ in range(future_days):
+      model.eval()
+      y_test_pred = model(test_seq)
+      pred = torch.flatten(y_test_pred).item()
+      preds.append(pred)
+      new_seq = test_seq.numpy().flatten()
+      new_seq = np.append(new_seq, [pred])
+      new_seq = new_seq[1:]
+      test_seq = torch.as_tensor(new_seq).view(1, seq_length, 1).float()
+  return preds
