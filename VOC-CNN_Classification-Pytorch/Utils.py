@@ -1,9 +1,13 @@
 import torch
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.metrics import average_precision_score
+from sklearn.metrics import average_precision_score, confusion_matrix
 import numpy as np
-
+import pandas as pd
+import tqdm
+from torchvision import transforms
+from VOCDataset import *
+from torch.utils.data import DataLoader
 
 # Accuracy Evaluation
 
@@ -34,7 +38,7 @@ def to_device(data, device):
 # Calculate Mean and Std
 def Mean_std(data_dir, image_dir, data_type, batch_size):
     transform_train = transforms.Compose([transforms.Resize(size=(224, 224)), transforms.ToTensor()])
-    train_data = VOCData(data_dir=data_dir, image_dir=im_path, data_type="train", transform=transform_train)
+    train_data = VOCData(data_dir=data_dir, image_dir=image_dir, data_type="train", transform=transform_train)
     train_dl = DataLoader(train_data, batch_size, shuffle=True, num_workers=4, pin_memory=True)
 
     channels_sum, channels_sqrd_sum, num_batches = 0, 0, 0
@@ -104,7 +108,7 @@ def get_class(label):
 
 #Function to visualize one single image from dataset
 
-def Plot_Image( img, label):
+def Plot_Image( img, label, dataset):
 
   names = get_class(label)
   for i in names:
@@ -112,7 +116,7 @@ def Plot_Image( img, label):
   plt.imshow(img.permute(1, 2, 0))
 
 # Confusion matrix
-def CM(y_true,y_pred):
+def CM(y_true,y_pred, dataset):
   cf_matrix = confusion_matrix(y_true, y_pred)
   df_cm = pd.DataFrame(cf_matrix/np.sum(cf_matrix) *10, index = [i for i in dataset.classes],
                       columns = [i for i in dataset.classes])
@@ -122,7 +126,7 @@ def CM(y_true,y_pred):
 
 # Retrieve predictions
 
-def predict_image(img, model):
+def predict_image(img, model, device, dataset):
     image = to_device(img.unsqueeze(0), device)
     y_pred = model(image)
 
@@ -132,7 +136,7 @@ def predict_image(img, model):
 
 # Plot image, truth labels, pred labels.
 
-def finally_preds(model,value, num):
+def finally_preds(model,value, num, train_data,val_data,test_data, dataset):
   if value=="train":
     img, label = train_data[num]
     names = get_class(label)
